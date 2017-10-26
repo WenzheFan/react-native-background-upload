@@ -31,36 +31,11 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- Returns a percent-escaped string following RFC 3986 for a query string key or value.
- RFC 3986 states that the following characters are "reserved" characters.
- - General Delimiters: ":", "#", "[", "]", "@", "?", "/"
- - Sub-Delimiters: "!", "$", "&", "'", "(", ")", "*", "+", ",", ";", "="
-
- In RFC 3986 - Section 3.4, it states that the "?" and "/" characters should not be escaped to allow
- query strings to include a URL. Therefore, all "reserved" characters with the exception of "?" and "/"
- should be percent-escaped in the query string.
- 
- @param string The string to be percent-escaped.
- 
- @return The percent-escaped string.
- */
-FOUNDATION_EXPORT NSString * AFPercentEscapedStringFromString(NSString *string);
-
-/**
- A helper method to generate encoded url query parameters for appending to the end of a URL.
-
- @param parameters A dictionary of key/values to be encoded.
-
- @return A url encoded query string
- */
-FOUNDATION_EXPORT NSString * AFQueryStringFromParameters(NSDictionary *parameters);
-
-/**
  The `AFURLRequestSerialization` protocol is adopted by an object that encodes parameters for a specified HTTP requests. Request serializers may encode parameters as query strings, HTTP bodies, setting the appropriate HTTP header fields as necessary.
 
  For example, a JSON request serializer may set the HTTP body of the request to a JSON representation, and set the `Content-Type` HTTP header field value to `application/json`.
  */
-@protocol AFURLRequestSerialization <NSObject, NSSecureCoding, NSCopying>
+@protocol VydiaAFURLRequestSerialization <NSObject, NSSecureCoding, NSCopying>
 
 /**
  Returns a request with the specified parameters encoded into a copy of the original request.
@@ -82,18 +57,18 @@ FOUNDATION_EXPORT NSString * AFQueryStringFromParameters(NSDictionary *parameter
 /**
 
  */
-typedef NS_ENUM(NSUInteger, AFHTTPRequestQueryStringSerializationStyle) {
+typedef NS_ENUM(NSUInteger, VydiaAFHTTPRequestQueryStringSerializationStyle) {
     AFHTTPRequestQueryStringDefaultStyle = 0,
 };
 
-@protocol AFMultipartFormData;
+@protocol VydiaAFMultipartFormData;
 
 /**
  `AFHTTPRequestSerializer` conforms to the `AFURLRequestSerialization` & `AFURLResponseSerialization` protocols, offering a concrete base implementation of query string / URL form-encoded parameter serialization and default request headers, as well as response status code and content type validation.
 
  Any request or response serializer dealing with HTTP is encouraged to subclass `AFHTTPRequestSerializer` in order to ensure consistent default behavior.
  */
-@interface AFHTTPRequestSerializer : NSObject <AFURLRequestSerialization>
+@interface VydiaAFHTTPRequestSerializer : NSObject <VydiaAFURLRequestSerialization>
 
 /**
  The string encoding used to serialize parameters. `NSUTF8StringEncoding` by default.
@@ -209,7 +184,7 @@ forHTTPHeaderField:(NSString *)field;
 
  @see AFHTTPRequestQueryStringSerializationStyle
  */
-- (void)setQueryStringSerializationWithStyle:(AFHTTPRequestQueryStringSerializationStyle)style;
+- (void)setQueryStringSerializationWithStyle:(VydiaAFHTTPRequestQueryStringSerializationStyle)style;
 
 /**
  Set the a custom method of query string serialization according to the specified block.
@@ -255,7 +230,7 @@ forHTTPHeaderField:(NSString *)field;
 - (NSMutableURLRequest *)multipartFormRequestWithMethod:(NSString *)method
                                               URLString:(NSString *)URLString
                                              parameters:(nullable NSDictionary <NSString *, id> *)parameters
-                              constructingBodyWithBlock:(nullable void (^)(id <AFMultipartFormData> formData))block
+                              constructingBodyWithBlock:(nullable void (^)(id <VydiaAFMultipartFormData> formData))block
                                                   error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
@@ -280,7 +255,7 @@ forHTTPHeaderField:(NSString *)field;
 /**
  The `AFMultipartFormData` protocol defines the methods supported by the parameter in the block argument of `AFHTTPRequestSerializer -multipartFormRequestWithMethod:URLString:parameters:constructingBodyWithBlock:`.
  */
-@protocol AFMultipartFormData
+@protocol VydiaAFMultipartFormData
 
 /**
  Appends the HTTP header `Content-Disposition: file; filename=#{generated filename}; name=#{name}"` and `Content-Type: #{generated mimeType}`, followed by the encoded file data and the multipart form boundary.
@@ -380,7 +355,7 @@ forHTTPHeaderField:(NSString *)field;
 /**
  `AFJSONRequestSerializer` is a subclass of `AFHTTPRequestSerializer` that encodes parameters as JSON using `NSJSONSerialization`, setting the `Content-Type` of the encoded request to `application/json`.
  */
-@interface AFJSONRequestSerializer : AFHTTPRequestSerializer
+@interface VydiaAFJSONRequestSerializer : VydiaAFHTTPRequestSerializer
 
 /**
  Options for writing the request JSON data from Foundation objects. For possible values, see the `NSJSONSerialization` documentation section "NSJSONWritingOptions". `0` by default.
@@ -401,7 +376,7 @@ forHTTPHeaderField:(NSString *)field;
 /**
  `AFPropertyListRequestSerializer` is a subclass of `AFHTTPRequestSerializer` that encodes parameters as JSON using `NSPropertyListSerializer`, setting the `Content-Type` of the encoded request to `application/x-plist`.
  */
-@interface AFPropertyListRequestSerializer : AFHTTPRequestSerializer
+@interface VydiaAFPropertyListRequestSerializer : VydiaAFHTTPRequestSerializer
 
 /**
  The property list format. Possible values are described in "NSPropertyListFormat".
@@ -444,7 +419,7 @@ forHTTPHeaderField:(NSString *)field;
  `AFURLRequestSerializationErrorDomain`
  AFURLRequestSerializer errors. Error codes for `AFURLRequestSerializationErrorDomain` correspond to codes in `NSURLErrorDomain`.
  */
-FOUNDATION_EXPORT NSString * const AFURLRequestSerializationErrorDomain;
+FOUNDATION_EXPORT NSString * const VydiaAFURLRequestSerializationErrorDomain;
 
 /**
  ## User info dictionary keys
@@ -458,22 +433,6 @@ FOUNDATION_EXPORT NSString * const AFURLRequestSerializationErrorDomain;
  `AFNetworkingOperationFailingURLRequestErrorKey`
  The corresponding value is an `NSURLRequest` containing the request of the operation associated with an error. This key is only present in the `AFURLRequestSerializationErrorDomain`.
  */
-FOUNDATION_EXPORT NSString * const AFNetworkingOperationFailingURLRequestErrorKey;
-
-/**
- ## Throttling Bandwidth for HTTP Request Input Streams
-
- @see -throttleBandwidthWithPacketSize:delay:
-
- ### Constants
-
- `kAFUploadStream3GSuggestedPacketSize`
- Maximum packet size, in number of bytes. Equal to 16kb.
-
- `kAFUploadStream3GSuggestedDelay`
- Duration of delay each time a packet is read. Equal to 0.2 seconds.
- */
-FOUNDATION_EXPORT NSUInteger const kAFUploadStream3GSuggestedPacketSize;
-FOUNDATION_EXPORT NSTimeInterval const kAFUploadStream3GSuggestedDelay;
+FOUNDATION_EXPORT NSString * const VydiaAFNetworkingOperationFailingURLRequestErrorKey;
 
 NS_ASSUME_NONNULL_END
