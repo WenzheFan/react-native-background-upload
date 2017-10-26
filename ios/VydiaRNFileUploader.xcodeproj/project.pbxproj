@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CD13977A1FA276BB00890E40 /* AFURLRequestSerialization.m in Sources */ = {isa = PBXBuildFile; fileRef = CD1397791FA276BB00890E40 /* AFURLRequestSerialization.m */; };
 		DCC748851E044F8700EA453E /* VydiaRNFileUploader.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */; };
 /* End PBXBuildFile section */
 
@@ -24,6 +25,8 @@
 
 /* Begin PBXFileReference section */
 		014A3B5C1C6CF33500B6D375 /* libVydiaRNFileUploader.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libVydiaRNFileUploader.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		CD1397781FA276BB00890E40 /* AFURLRequestSerialization.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFURLRequestSerialization.h; sourceTree = "<group>"; };
+		CD1397791FA276BB00890E40 /* AFURLRequestSerialization.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AFURLRequestSerialization.m; sourceTree = "<group>"; };
 		DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VydiaRNFileUploader.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -41,6 +44,8 @@
 		014A3B531C6CF33500B6D375 = {
 			isa = PBXGroup;
 			children = (
+				CD1397781FA276BB00890E40 /* AFURLRequestSerialization.h */,
+				CD1397791FA276BB00890E40 /* AFURLRequestSerialization.m */,
 				DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */,
 				014A3B5D1C6CF33500B6D375 /* Products */,
 			);
@@ -111,6 +116,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DCC748851E044F8700EA453E /* VydiaRNFileUploader.m in Sources */,
+				CD13977A1FA276BB00890E40 /* AFURLRequestSerialization.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
