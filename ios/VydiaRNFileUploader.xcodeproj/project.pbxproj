@@ -49,6 +49,7 @@
 				DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */,
 				014A3B5D1C6CF33500B6D375 /* Products */,
 			);
+			indentWidth = 4;
 			sourceTree = "<group>";
 		};
 		014A3B5D1C6CF33500B6D375 /* Products */ = {
