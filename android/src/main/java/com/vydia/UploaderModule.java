@@ -28,6 +28,8 @@ import net.gotev.uploadservice.UploadStatusDelegate;
 import net.gotev.uploadservice.okhttp.OkHttpStack;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by stephen on 12/8/16.
@@ -192,6 +194,10 @@ public class UploaderModule extends ReactContextBaseJavaModule {
 
         request = new MultipartUploadRequest(this.getReactApplicationContext(), customUploadId, url)
                 .addFileToUpload(filePath, options.getString("field"));
+
+        for (Map.Entry<String, String> field : parseMultipartFields(options).entrySet()) {
+          request.addParameter(field.getKey(), field.getValue());
+        }
       }
 
       request.setMethod(method)
@@ -223,4 +229,30 @@ public class UploaderModule extends ReactContextBaseJavaModule {
     }
   }
 
+  private Map<String, String> parseMultipartFields(ReadableMap options) {
+    HashMap<String, String> fields = new HashMap();
+
+    if (!options.hasKey("params")) {
+      return fields;
+    }
+
+    if (options.getType("params") != ReadableType.Map) {
+      throw new IllegalArgumentException("params must be an object");
+    }
+
+    ReadableMap params = options.getMap("params");
+    ReadableMapKeySetIterator i = params.keySetIterator();
+
+    while (i.hasNextKey()) {
+      String key = i.nextKey();
+
+      if (params.getType(key) != ReadableType.String) {
+        throw new IllegalArgumentException("only strings are supported as param values");
+      }
+
+      fields.put(key, params.getString(key));
+    }
+
+    return fields;
+  }
 }
