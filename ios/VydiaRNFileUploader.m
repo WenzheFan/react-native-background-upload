@@ -10,6 +10,7 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <React/RCTEventEmitter.h>
 #import <React/RCTBridgeModule.h>
+#import "AFURLRequestSerialization.h"
 
 @interface VydiaRNFileUploader : RCTEventEmitter <RCTBridgeModule, NSURLSessionTaskDelegate>
 {
@@ -118,71 +119,105 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
     NSString *method = options[@"method"] ?: @"POST";
     NSString *uploadType = options[@"type"] ?: @"raw";
     NSString *fieldName = options[@"field"];
+    NSString *fileName = options[@"fileName"] ?: [fileURI lastPathComponent];
     NSString *customUploadId = options[@"customUploadId"];
     NSDictionary *headers = options[@"headers"];
+    NSDictionary<NSString *, id> *parameters = options[@"params"];
 
     @try {
-        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString: uploadUrl]];
-        [request setHTTPMethod: method];
-
-        [headers enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull val, BOOL * _Nonnull stop) {
-            if ([val respondsToSelector:@selector(stringValue)]) {
-                val = [val stringValue];
-            }
-            if ([val isKindOfClass:[NSString class]]) {
-                [request setValue:val forHTTPHeaderField:key];
-            }
-        }];
-
-        NSURLSessionDataTask *uploadTask;
-
         if ([uploadType isEqualToString:@"multipart"]) {
-            NSString *uuidStr = [[NSUUID UUID] UUIDString];
-            [request setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", uuidStr] forHTTPHeaderField:@"Content-Type"];
+            __block NSError *bodyError;
+            [self createMultipartUploadRequestWithURLString:uploadUrl method:method parameters:parameters constructingBodyWithBlock:^(id<VydiaAFMultipartFormData>  _Nonnull formData) {
+                [formData appendPartWithFileURL:[NSURL URLWithString:fileURI]
+                                           name:fieldName
+                                       fileName:fileName
+                                       mimeType:[self guessMIMETypeFromFileName:fileURI]
+                                          error:&bodyError];
+            } completionHandler:^(NSMutableURLRequest * _Nullable request, NSURL * _Nullable requestBody, NSError * _Nullable error) {
+                error = bodyError ?: error;
+                if (error) {
+                    NSString *errorMsg = [NSString stringWithFormat:@"Error creating multipart form request: %@", error.localizedDescription];
+                    NSLog(@"%@", errorMsg);
+                    reject(@"RN Uploader", errorMsg, error);
+                    return;
+                }
 
-            NSData *httpBody = [self createBodyWithBoundary:uuidStr path:fileURI fieldName:fieldName];
-            [request setHTTPBody: httpBody];
+                NSMutableDictionary *multipartHeaders = [headers mutableCopy];
+                [multipartHeaders removeObjectForKey:@"Content-Type"];
+                [self setHeadersForRequest:request headers:multipartHeaders];
 
-            // I am sorry about warning, but Upload tasks from NSData are not supported in background sessions.
-            uploadTask = [[self urlSession:thisUploadId] uploadTaskWithRequest:request fromData: nil];
+                NSURLSessionDataTask *uploadTask = [[self urlSession:thisUploadId] uploadTaskWithRequest:request fromFile:requestBody];
+                uploadTask.taskDescription = customUploadId ? customUploadId : [NSString stringWithFormat:@"%i", thisUploadId];
+                [uploadTask resume];
+                resolve(uploadTask.taskDescription);
+            }];
         } else {
+            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString: uploadUrl]];
+            [request setHTTPMethod: method];
+            [self setHeadersForRequest:request headers:headers];
+            __block NSURLSessionDataTask *uploadTask;
             uploadTask = [[self urlSession:thisUploadId] uploadTaskWithRequest:request fromFile:[NSURL URLWithString: fileURI]];
+            uploadTask.taskDescription = customUploadId ? customUploadId : [NSString stringWithFormat:@"%i", thisUploadId];
+            [uploadTask resume];
+            resolve(uploadTask.taskDescription);
         }
-
-        uploadTask.taskDescription = customUploadId ? customUploadId : [NSString stringWithFormat:@"%i", thisUploadId];
-
-        [uploadTask resume];
-        resolve(uploadTask.taskDescription);
     }
     @catch (NSException *exception) {
         reject(@"RN Uploader", exception.name, nil);
     }
 }
 
-- (NSData *)createBodyWithBoundary:(NSString *)boundary
-                         path:(NSString *)path
-                         fieldName:(NSString *)fieldName {
+- (void)setHeadersForRequest:(NSMutableURLRequest *)request headers:(NSDictionary *)headers {
+    [headers enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull val, BOOL * _Nonnull stop) {
+        if ([val respondsToSelector:@selector(stringValue)]) {
+            val = [val stringValue];
+        }
+        if ([val isKindOfClass:[NSString class]]) {
+            [request setValue:val forHTTPHeaderField:key];
+        }
+    }];
+}
 
-    NSMutableData *httpBody = [NSMutableData data];
+- (void)createMultipartUploadRequestWithURLString:(NSString *)uploadUrl
+                                           method:(NSString *)method
+                                       parameters:(NSDictionary<NSString *, id> *)parameters
+                        constructingBodyWithBlock:(void (^)(id<VydiaAFMultipartFormData>))bodyBlock
+                                completionHandler:(void (^)(NSMutableURLRequest * _Nullable request, NSURL * _Nullable requestBody, NSError * _Nullable error))completionHandler
+{
+    NSError *error;
+    NSMutableURLRequest *streamedRequest = [[VydiaAFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:method URLString:uploadUrl parameters:parameters constructingBodyWithBlock:bodyBlock error:&error];
 
-    // resolve path
-    NSURL *fileUri = [NSURL URLWithString: path];
-    NSString *pathWithoutProtocol = [fileUri path];
+    if (!streamedRequest) {
+        completionHandler(nil, nil, error);
+        return;
+    }
 
-    NSData *data = [[NSFileManager defaultManager] contentsAtPath:pathWithoutProtocol];
+    NSURL *tempUploadFile = [self createTemporaryUploadFileForURL:uploadUrl withError:&error];
 
-    NSString *filename  = [path lastPathComponent];
-    NSString *mimetype  = [self guessMIMETypeFromFileName:path];
+    if (!tempUploadFile) {
+        completionHandler(nil, nil, error);
+        return;
+    }
 
-    [httpBody appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [httpBody appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"%@\"; filename=\"%@\"\r\n", fieldName, filename] dataUsingEncoding:NSUTF8StringEncoding]];
-    [httpBody appendData:[[NSString stringWithFormat:@"Content-Type: %@\r\n\r\n", mimetype] dataUsingEncoding:NSUTF8StringEncoding]];
-    [httpBody appendData:data];
-    [httpBody appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+    __block NSMutableURLRequest *multipartRequest;
+    multipartRequest = [[VydiaAFHTTPRequestSerializer serializer] requestWithMultipartFormRequest:streamedRequest writingStreamContentsToFile:tempUploadFile completionHandler:^(NSError * _Nullable error) {
+        if (error) {
+            completionHandler(nil, nil, error);
+        } else {
+            completionHandler(multipartRequest, tempUploadFile, nil);
+        }
+    }];
+}
 
-    [httpBody appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-
-    return httpBody;
+- (NSURL * _Nullable)createTemporaryUploadFileForURL:(NSString *)uploadURL withError:(NSError **)error {
+    NSString *tempPath = NSTemporaryDirectory();
+    NSURL *tempRootDir = [NSURL fileURLWithPath:tempPath isDirectory:YES];
+    NSURL *tempDir = [tempRootDir URLByAppendingPathComponent:[[NSProcessInfo processInfo] globallyUniqueString]];
+    if (![[NSFileManager defaultManager] createDirectoryAtURL:tempDir withIntermediateDirectories:YES attributes:nil error:error]) {
+        return nil;
+    }
+    NSString *tempFileName = [uploadURL stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet alphanumericCharacterSet]];
+    return [tempDir URLByAppendingPathComponent:tempFileName];
 }
 
 - (NSURLSession *)urlSession: (int) thisUploadId{
