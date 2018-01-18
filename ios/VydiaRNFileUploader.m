@@ -11,8 +11,9 @@
 #import <React/RCTEventEmitter.h>
 #import <React/RCTBridgeModule.h>
 #import "AFURLRequestSerialization.h"
+#import <UserNotifications/UserNotifications.h>
 
-@interface VydiaRNFileUploader : RCTEventEmitter <RCTBridgeModule, NSURLSessionTaskDelegate>
+@interface VydiaRNFileUploader : RCTEventEmitter <RCTBridgeModule, NSURLSessionTaskDelegate, NSURLSessionDelegate>
 {
   NSMutableDictionary *_responsesData;
 }
@@ -27,6 +28,8 @@ static int uploadId = 0;
 static RCTEventEmitter* staticEventEmitter = nil;
 static NSString *BACKGROUND_SESSION_ID = @"VydiaRNFileUploader";
 NSURLSession *_urlSession = nil;
+NSString * notificationTitle = nil;
+NSString * notificationBody = nil;
 
 -(id) init {
   self = [super init];
@@ -123,6 +126,8 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
     NSString *customUploadId = options[@"customUploadId"];
     NSDictionary *headers = options[@"headers"];
     NSDictionary<NSString *, id> *parameters = options[@"params"];
+    notificationTitle = options[@"notificationTitle"];
+    notificationBody = options[@"notificationBody"];
 
     @try {
         if ([uploadType isEqualToString:@"multipart"]) {
@@ -287,6 +292,27 @@ totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend {
         _responsesData[@(dataTask.taskIdentifier)] = responseData;
     } else {
         [responseData appendData:data];
+    }
+}
+
+// URLSessionDelegate
+
+- (void) URLSessionDidFinishEventsForBackgroundURLSession:(NSURLSession *)session
+{
+    NSLog(@"sess done in background");
+    if (notificationTitle != nil || notificationBody != nil) {
+        UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+        content.title = notificationTitle;
+        content.body = notificationBody;
+
+        UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:5 repeats:NO];
+        UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:@"com.jrnl.fanbooks.production.background_completed" content:content trigger:trigger];
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        [center addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
+            if (error != nil) {
+                NSLog(@"Something went wrong %@", error);
+            }
+        }];
     }
 }
 
